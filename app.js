@@ -4,56 +4,38 @@ const TelegramBot = require("node-telegram-bot-api");
 const express = require("express");
 const app = express();
 const token = process.env.telegramToken;
-const bot = new TelegramBot(token, {polling: true});
+const bot = new TelegramBot(token, { polling: true });
 
-// openai    
-const { Configuration, OpenAIApi } = require("openai");
 
-const API_KEY =process.env.openAI;
-const configuration = new Configuration({
-  apiKey: API_KEY,
+// gemini--ai
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI(process.env.API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "how can i help you today");
 });
 
-const openai = new OpenAIApi(configuration);
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  let input = msg.text;
+  console.log(input);
+  bot.sendMessage(chatId, "typing");
 
 
-bot.onText(/\/start/,(msg)=>{
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, "how can i help you today");
-});
+  const result = await model.generateContent(input);
+  const response = await result.response;
+  const text = response.text();
+  console.log(text);
+  bot.sendMessage(chatId, text);
 
-
-bot.on('message',(msg)=>{
-    const chatId = msg.chat.id;
-    let input =msg.text;
-    console.log(input);
-    bot.sendMessage(chatId, "typing");
-
-    let outputs =[];
-
-    const response = openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        messages: [{role: "user", content : input}],
-        max_tokens: 700,
-        temperature: 0,
-      }).then((docs)=>{
-
-        console.log(docs.data.choices);
-        docs.data.choices.forEach(function(choice){
-            outputs.push(choice);
-           });
-
-           outputs.forEach(function(output){
-            // console.log(output.message.content);
-
-            bot.sendMessage(chatId,  output.message.content );
-
-
-            output =[];
-           });
-      });
 });
 
 app.listen(3000, () => {
-    console.log("Server started on port 3000");
-  });
+  console.log("Server started on port 3000");
+});
